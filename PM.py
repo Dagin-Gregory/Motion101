@@ -4,7 +4,7 @@ import shutil
 import queue
 import time
 import pyautogui as pyat
-import pywin32_system32 as pywin
+import win32gui as pywin
 
 DEBUG = True
 
@@ -136,7 +136,7 @@ def find_horizontal_moves(xy_map):
                 horizontal_moves.append((y,x,shift))
     return horizontal_moves
 
-#def find_vertical_moves() :
+#def find_vertical_moves():
 
 def xy_to_pixelcoord(x, y, sq_height, sq_width):
     # Image is divided into a grid of squares
@@ -153,8 +153,8 @@ def dragMouse(start_y, start_x, end_y, end_x, duration=.5):
     pyat.moveTo(end_x, end_y, duration)
     pyat.mouseUp(button=mouseButton)
 
-def execute_move(move, sq_height, sq_width):
-    pywin
+def execute_move(move, sq_height, sq_width, x_offset, y_offset):
+
 
     # move: ((y,x,shift),direction)
     # direction: 0 (horizontal)
@@ -165,8 +165,8 @@ def execute_move(move, sq_height, sq_width):
     if (direction == 0):
         x_shifted = (x_move+shift)%cols_
         x_pixel_end = xy_to_pixelcoord(x_shifted, y_move, sq_height, sq_width)
-        dragMouse(y_pixel_start, x_pixel_start,
-                  y_pixel_start, x_pixel_end,
+        dragMouse(y_pixel_start+y_offset, x_pixel_start+x_offset,
+                  y_pixel_start+y_offset, x_pixel_end+x_offset,
                   duration=.25)
         
 
@@ -197,6 +197,28 @@ def DEBUG_show_xy_mappings(xy_map) :
         if (i % cols_ == 0 and i != 0) :
             print("\n")
         print(xy_map[i])
+
+def relevantWindow(windowText, wordToFind):
+    windowText = windowText.lower()
+    wordToFind = wordToFind.lower()
+    return wordToFind in windowText
+
+def addToWindowList(windowId, arr:list[int]):
+    arr.append(windowId)
+
+def getWindowPos(windowId):
+    pywin.SetFocus(windowId)
+    _,_,_,_,location = pywin.GetWindowPlacement(windowId)
+    x_start,y_start,_,_ = location
+    x_start = max(0,x_start)
+    y_start = max(0,y_start)
+    return (y_start,x_start)
+
+def callback(windowId, _):
+    windowText = pywin.GetWindowText(windowId)
+    keyword = "Wizard101"
+    if (relevantWindow(windowText, keyword)):
+        addToWindowList(windowId, windowList)
 
 def main():
     color_map = []
@@ -238,4 +260,18 @@ if __name__ == '__main__':
     rows_ = 6
     cols_ = 7
     similar_thresh = 10
-    main()
+    windowList = []
+    x_screen_offset = 0
+    y_screen_offset = 0
+    x_width = 0
+    y_width = 0
+    pywin.EnumWindows(callback, None)
+    if (len(windowList) <= 0 or len(windowList) > 1):
+        raise Exception("Problem finding Wizard101 window")
+    # Assume only 1 window open for now
+    wizardWindowId = windowList[0]
+    y_screen_offset,x_screen_offset = getWindowPos(wizardWindowId)
+    pywin.SetFocus(wizardWindowId)
+    _,_,x_width,y_width = pywin.GetClientRect(wizardWindowId)
+    #pywin.CreateBitmap()
+    #main()
