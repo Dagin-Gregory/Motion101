@@ -3,6 +3,8 @@ from math import *
 import shutil
 import queue
 import time
+import pyautogui as pyat
+import pywin32_system32 as pywin
 
 DEBUG = True
 
@@ -127,11 +129,11 @@ def valid_colors(x, y, xy_map, shift, search_color):
 
 def find_horizontal_moves(xy_map):
     horizontal_moves = []
+    x = 0
     for y in range(0, rows_):
-        for x in range(0, cols_):
-            for shift in range(1, int(cols_/2)):
-                if (bfs(x, y, xy_map, shift)):
-                    horizontal_moves.append((y,x,shift))
+        for shift in range(1, int(cols_/2)):
+            if (bfs(x, y, xy_map, shift)):
+                horizontal_moves.append((y,x,shift))
     return horizontal_moves
 
 #def find_vertical_moves() :
@@ -142,9 +144,17 @@ def xy_to_pixelcoord(x, y, sq_height, sq_width):
     y_pixel = sq_height*y + sq_height/2
     return (y_pixel, x_pixel)
     
+# duration is time in seconds
+def dragMouse(start_y, start_x, end_y, end_x, duration=.5):
+    mouseButton = 'left'
+    # A mouse drag is moving the mouse while holding down the left mouse button(LMB)
+    pyat.moveTo(start_x, start_y, duration)
+    pyat.mouseDown(button=mouseButton)
+    pyat.moveTo(end_x, end_y, duration)
+    pyat.mouseUp(button=mouseButton)
 
 def execute_move(move, sq_height, sq_width):
-    
+    pywin
 
     # move: ((y,x,shift),direction)
     # direction: 0 (horizontal)
@@ -155,7 +165,9 @@ def execute_move(move, sq_height, sq_width):
     if (direction == 0):
         x_shifted = (x_move+shift)%cols_
         x_pixel_end = xy_to_pixelcoord(x_shifted, y_move, sq_height, sq_width)
-
+        dragMouse(y_pixel_start, x_pixel_start,
+                  y_pixel_start, x_pixel_end,
+                  duration=.25)
         
 
 def DEBUG_show_colors(color_map, xy_map) :
