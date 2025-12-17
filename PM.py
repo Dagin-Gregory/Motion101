@@ -144,6 +144,8 @@ def xy_to_pixelcoord(x, y, sq_height, sq_width):
     
 
 def execute_move(move, sq_height, sq_width):
+    
+
     # move: ((y,x,shift),direction)
     # direction: 0 (horizontal)
     move_info, direction = move
@@ -153,7 +155,7 @@ def execute_move(move, sq_height, sq_width):
     if (direction == 0):
         x_shifted = (x_move+shift)%cols_
         x_pixel_end = xy_to_pixelcoord(x_shifted, y_move, sq_height, sq_width)
-        
+
         
 
 def DEBUG_show_colors(color_map, xy_map) :
