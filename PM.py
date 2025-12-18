@@ -4,7 +4,10 @@ import shutil
 import queue
 import time
 import pyautogui as pyat
-import win32gui as pywin
+import win32gui as pyw
+import win32ui as pywui
+import win32api as pywapi
+import win32process as pywproc
 
 DEBUG = True
 
@@ -203,22 +206,22 @@ def relevantWindow(windowText, wordToFind):
     wordToFind = wordToFind.lower()
     return wordToFind in windowText
 
-def addToWindowList(windowId, arr:list[int]):
-    arr.append(windowId)
+def addToWindowList(hwnd, arr:list[int]):
+    arr.append(hwnd)
 
-def getWindowPos(windowId):
-    pywin.SetFocus(windowId)
-    _,_,_,_,location = pywin.GetWindowPlacement(windowId)
+def getWindowPos(hwnd):
+    pyw.SetFocus(hwnd)
+    _,_,_,_,location = pyw.GetWindowPlacement(hwnd)
     x_start,y_start,_,_ = location
     x_start = max(0,x_start)
     y_start = max(0,y_start)
     return (y_start,x_start)
 
-def callback(windowId, _):
-    windowText = pywin.GetWindowText(windowId)
+def callback(hwnd, _):
+    windowText = pyw.GetWindowText(hwnd)
     keyword = "Wizard101"
     if (relevantWindow(windowText, keyword)):
-        addToWindowList(windowId, windowList)
+        addToWindowList(hwnd, windowList)
 
 def main():
     color_map = []
@@ -263,15 +266,25 @@ if __name__ == '__main__':
     windowList = []
     x_screen_offset = 0
     y_screen_offset = 0
-    x_width = 0
-    y_width = 0
-    pywin.EnumWindows(callback, None)
+    width = 0
+    height = 0
+    current_proc_id = pywapi.GetCurrentThreadId()
+
+    pyw.EnumWindows(callback, None)
     if (len(windowList) <= 0 or len(windowList) > 1):
         raise Exception("Problem finding Wizard101 window")
     # Assume only 1 window open for now
-    wizardWindowId = windowList[0]
-    y_screen_offset,x_screen_offset = getWindowPos(wizardWindowId)
-    pywin.SetFocus(wizardWindowId)
-    _,_,x_width,y_width = pywin.GetClientRect(wizardWindowId)
-    #pywin.CreateBitmap()
+    wizardHwnd = windowList[0]
+    wizardThreadId,_ = pywproc.GetWindowThreadProcessId(wizardHwnd)
+    pywproc.AttachThreadInput(current_proc_id, wizardThreadId, True)
+    
+    y_screen_offset,x_screen_offset = getWindowPos(wizardHwnd)
+    pyw.SetFocus(wizardHwnd)
+    _,_,width,height = pyw.GetClientRect(wizardHwnd)
+    bmp = pywui.CreateBitmap()
+    windc = pyw.GetWindowDC(wizardHwnd)
+    #pyw.DC
+    #cbmp = pyw.CreateCompatibleBitmap(bmp)
+    
+    #pyw.CreateBitmap()
     #main()
