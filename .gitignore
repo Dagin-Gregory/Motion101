@@ -1,3 +1,4 @@
 *.bmp
 *__pycache__
 DEBUG*
+TODO*
