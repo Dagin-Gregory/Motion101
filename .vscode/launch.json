@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run PotionMotion.PM (module)",
+      //"type": "python",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "PotionMotion.PM",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+}
