@@ -36,7 +36,7 @@ def potionMotion():
             retries = 0
             time_between_checks = 3
             manager_confidence = .8
-            with (helper_screen.ScreenCapture(pywgui.GetDesktopWindow()) as manager_capture,
+            with (helper_screen.ScreenCapture(wizardHwnd) as manager_capture,
                   helper_screen.ScreenCapture(wizardHwnd) as game_capture):
                 banner_template = helper_screen.openImage('PotionMotion/PM_Banner.png')
                 continue_template = helper_screen.openImage('PotionMotion/PM_Continue.png')
@@ -53,17 +53,16 @@ def potionMotion():
                       multiprocessing.Manager() as manager):
                     maxSize = 5
                     moves = multiprocessing.Queue(maxSize)
-                    #queued_moves = {}
                     queued_moves = manager.dict()
-                    #safe_screenshot = [True]
                     safe_screenshot:Synchronized[bool] = multiprocessing.Value(ctypes.c_bool, True)
                     curr_suffix:Synchronized[int] = multiprocessing.Value(ctypes.c_int, 0)
                     curr_retries:Synchronized[int] = multiprocessing.Value(ctypes.c_int, 0)
+                    prev_xy_map = multiprocessing.Array(ctypes.c_int, 6*7) # xy_map is rows*cols in size, 6*7
                     screenshot_proc = multiprocessing.Process(name='screenshot', target=helper_control.ControlStructWrapper, 
                                                             args=[screenshot_control, helper_pm.findMoves, 
                                                                   [moves, queued_moves, safe_screenshot, 
                                                                    curr_suffix, screenshot_control, game_capture, 
-                                                                   curr_retries, 'PotionMotion/noSoln/']])
+                                                                   curr_retries, 'PotionMotion/noSoln/', prev_xy_map]])
                     screenshot_proc.start()
 
                     mouse_thread = threading.Thread(name='mouse', target=helper_control.ControlStructWrapper, 
@@ -195,9 +194,11 @@ if __name__ == '__main__':
         adjHeight, adjWidth, _, screen_offset, topLeft = screen_capture.setupGameWindowPM()
         y_offset, x_offset = topLeft
         #game_window = screen_capture.saveGameWindow(adjHeight, adjWidth, x_offset, y_offset, safe=screen_sync, set_focus=set_focus)
-        game_window = screen_capture.saveGameWindow(adjHeight, adjWidth, x_offset, y_offset, safe=[True], set_focus=True, save_to_file=True)
+        safe = multiprocessing.Value(ctypes.c_bool, True)
+        game_window = screen_capture.saveGameWindow(adjHeight, adjWidth, x_offset, y_offset, safe=safe, set_focus=True, save_to_file=True)
         if (game_window is str):
             game_window = helper_screen.openImage(game_window)
     """
 
     main()
+

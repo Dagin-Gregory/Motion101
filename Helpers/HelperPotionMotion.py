@@ -10,6 +10,8 @@ import Helpers.HelperControl as helper_control
 import Helpers.HelperScreen as helper_screen
 
 SYNC_SCREEN = True
+HORIZONTAL_MOVE = 0
+VERTICAL_MOVE = 1
 
 def delta(color_a, color_b) :
     delta_E = sqrt( (color_a[0] - color_b[0]) ** 2 +
@@ -115,8 +117,11 @@ def bfs(x_start, y_start, search_color, xy_map, rows_=6, cols_=7):
     return found
 
 def valid_colors(x, y, xy_map, search_color, rows_=6, cols_=7):
-    #Assumes shift is being applied to the current row, y
-    #UP, RIGHT, DOWN, LEFT
+    # -1 is an invalid color and cannot be searched on
+    if (search_color == -1):
+        return []
+    # Assumes shift is being applied to the current row, y
+    # UP, RIGHT, DOWN, LEFT
     neighbors = [(y-1, x),
                  (y, x+1),
                  (y+1, x),
@@ -148,7 +153,7 @@ def find_horizontal_moves(xy_map, rows_=6, cols_=7):
                 search_color = xy(x, y, xy_map, 0)
                 score = bfs(x, y, search_color, xy_map)
                 if (score >= 3):
-                    horizontal_moves.append(((y, 0, shift),0,score))
+                    horizontal_moves.append(((y, 0, shift), HORIZONTAL_MOVE, score))
                     break
         roll_row(xy_map, y, 1)
     return horizontal_moves
@@ -182,7 +187,7 @@ def find_vertical_moves(xy_map, rows_=6, cols_=7):
                 search_color = xy(x, y, xy_map, 0)
                 score = bfs(x, y, search_color, xy_map)
                 if (score >= 3):
-                    vertical_moves.append(((0, x, shift),1,score))
+                    vertical_moves.append(((0, x, shift), VERTICAL_MOVE, score))
                     break
         roll_col(xy_map, x, 1)
     return vertical_moves
@@ -208,8 +213,8 @@ def find_best_vertical_move(xy_map, rows_=6, cols_=7):
 
 def xy_to_pixelcoord(x, y, sq_height, sq_width):
     # Image is divided into a grid of squares
-    y_pixel = sq_height*y# + sq_height/2
-    x_pixel = sq_width*x# + sq_width/2
+    y_pixel = sq_height*y + sq_height/2
+    x_pixel = sq_width*x + sq_width/2
     return (y_pixel, x_pixel)
 
 # duration is time in seconds
@@ -222,14 +227,14 @@ def execute_move(move, sq_height, sq_width, x_offset, y_offset, safe_screenshot:
     y_move, x_move, shift = move_info
     y_pixel_start,x_pixel_start = xy_to_pixelcoord(x_move, y_move, sq_height, sq_width)
     # Horizontal move
-    if (direction == 0):
+    if (direction == HORIZONTAL_MOVE):
         x_shifted = (x_move+shift)%cols_
         _,x_pixel_end = xy_to_pixelcoord(x_shifted, y_move, sq_height, sq_width)
         helper_mouse.dragMouse(y_pixel_start+y_offset, x_pixel_start+x_offset,
                                y_pixel_start+y_offset, x_pixel_end+x_offset,
                                safe_screenshot=safe_screenshot, duration=duration)
     # Vertical move
-    if (direction == 1):
+    if (direction == VERTICAL_MOVE):
         y_shifted = (y_move+shift)%rows_
         y_pixel_end,_ = xy_to_pixelcoord(x_move, y_shifted, sq_height, sq_width)
         helper_mouse.dragMouse(y_pixel_start+y_offset, x_pixel_start+x_offset,
@@ -258,7 +263,7 @@ def DEBUG_show_colors(d_im:Image.Image, color_map, xy_map, cols_=7, rows_=6) :
 
 def findMoves(moves:multiprocessing.Queue, queued_moves:dict[int, bool], safe_to_screenshot:Synchronized, curr_suffix:Synchronized,
               control_struct:helper_control.ControlStruct, screen_capture:helper_screen.ScreenCapture, curr_retries:Synchronized, no_soln_path:str,
-              set_focus=True, rows_=6, cols_=7):
+              prev_xy_map_sync:Synchronized, wait_until_settled=True, set_focus=True, rows_=6, cols_=7):
     
     adjHeight, adjWidth, _, screen_offset, topLeft = screen_capture.setupGameWindowPM()
     y_offset, x_offset = topLeft
@@ -277,15 +282,58 @@ def findMoves(moves:multiprocessing.Queue, queued_moves:dict[int, bool], safe_to
     if (curr_retries.value < max_retries):
         xy_map = []
         xy_map,_ = processImage(game_window, sq_height, sq_width)
+
+        # Only find moves when the entire board is settled
+        """
+        if (wait_until_settled):
+            with prev_xy_map_sync.get_lock():
+                prev_xy_map = prev_xy_map_sync.get_obj()
+                for i in range(len(xy_map)):
+                    if (xy_map[i] != prev_xy_map[i]):
+                        for i in range(len(xy_map)):
+                            prev_xy_map[i] = xy_map[i]
+                        return
+        """
+        # Find matches only using settled squares
+        if (wait_until_settled):
+            with prev_xy_map_sync.get_lock():
+                prev_xy_map = prev_xy_map_sync.get_obj()
+                for i in range(len(xy_map)):
+                    prev_val = xy_map[i]
+                    if (xy_map[i] != prev_xy_map[i]):
+                        xy_map[i] = -1
+                    prev_xy_map[i] = prev_val
+        
+        # Finding best vertical moves
+        """
         best_vertical = find_best_vertical_move(xy_map)
         if (best_vertical is not None):
             helper_control.placeInQueue(moves, best_vertical, queued_moves=queued_moves, unique=True, drop_item=False)
-            #helper_control.placeInQueue(moves, best_vertical, queued_moves=queued_moves, unique=False)
 
         best_horizontal = find_best_horizontal_move(xy_map)
         if (best_horizontal is not None):
             helper_control.placeInQueue(moves, best_horizontal, queued_moves=queued_moves, unique=True, drop_item=False)
-            #helper_control.placeInQueue(moves, best_horizontal, queued_moves=queued_moves, unique=False)
+        """
+
+        # rows 0-5
+        horizontal_moves = find_horizontal_moves(xy_map)
+        # cols 0-6
+        vertical_moves = find_vertical_moves(xy_map)
+        # IDEA: Rather than finding the highest value move, we want to clear the bottom bottles as often as possible
+        # Less 'stale' sections of the board should lead to longer games thus higher scores
+        # do this by taking the first 'k' moves for the last col/row
+        k = 1
+        for it in range(min(k, len(vertical_moves))):
+            idx = len(vertical_moves)-it-1
+            move, dir, score = vertical_moves[idx]
+            move_dir = (move, dir)
+            helper_control.placeInQueue(moves, move_dir, queued_moves=queued_moves, unique=True, drop_item=False)
+        for it in range(min(k, len(horizontal_moves))):
+            idx = len(horizontal_moves)-it-1
+            move, dir, score = horizontal_moves[idx]
+            move_dir = (move, dir)
+            helper_control.placeInQueue(moves, move_dir, queued_moves=queued_moves, unique=True, drop_item=False)
+        
 
         if (moves.empty()):
             with curr_retries.get_lock():
@@ -332,8 +380,7 @@ def consumeMoves(screen_capture:helper_screen.ScreenCapture, moveArr:multiproces
         execute_move(move, sq_height, sq_width, x_game_offset, y_game_offset, safe_screenshot=safe_to_screenshot, duration=.01)
         queued_moves[hash(move)] = False
 
-def continuous_find_then_click(screen_capture:helper_screen.ScreenCapture, template:Image.Image, y_offset=0, x_offset=0, height=-1, width=-1,
-                               src_y_offset=0, src_x_offset=0, dest_y_offset=0, dest_x_offset=0, retries=5,
+def continuous_find_then_click(screen_capture:helper_screen.ScreenCapture, template:Image.Image, y_offset=0, x_offset=0, height=-1, width=-1, retries=5,
                                confidence=.9, plot_instead_click=False, strict_matches_only:bool=False):
     # Want to click on the center of the template, template_match returns top left corner of match
     y_offset_template = int(template.height/2)
@@ -347,13 +394,15 @@ def continuous_find_then_click(screen_capture:helper_screen.ScreenCapture, templ
     while (retries >= 0):
         retries -= 1
         src = screen_capture.saveBitmap(height=height, width=width)
-        position,_,confident_match = helper_screen.templateMatch(src, template)
+        position,_,confident_match = helper_screen.templateMatch(src, template, confidence_interval=confidence)
         if ((confident_match) or not strict_matches_only):
             y, x = position
             y += y_offset
             x += x_offset
+            #y += y_offset_template
+            #x += x_offset_template
             if (plot_instead_click):
-                src = screen_capture.saveBitmap(height=1080, width=1920)
+                src = screen_capture.saveBitmap(height=height, width=width)
                 helper_screen.plotX(src, (y,x))
             else:
                 helper_mouse.leftclick(y, x)
@@ -361,13 +410,12 @@ def continuous_find_then_click(screen_capture:helper_screen.ScreenCapture, templ
 
 def manage_game(control_struct:helper_control.ControlStruct, screen_capture:helper_screen.ScreenCapture, 
                 banner_template:Image.Image, continue_template:Image.Image, play_template:Image.Image,
-                retries:int=1, time_between_checks:int=3, confidence:int=.9):
+                retries:int=10, time_between_checks:int=3, confidence:int=.8):
     if (banner_template is None or continue_template is None or play_template is None):
         raise Exception('A passed template image is none')
     
     bitmap_return = screen_capture.saveBitmap()
     window_screenshot = bitmap_return
-    #banner_template = helper_screen.openImage('PM_Banner.png')
     if (window_screenshot is str):
         window_screenshot = helper_screen.openImage(window_screenshot)
     if (window_screenshot is None):
@@ -381,7 +429,6 @@ def manage_game(control_struct:helper_control.ControlStruct, screen_capture:help
         print("Game over, banner not found")
 
         control_struct.pauseChildren()
-
         y_offset_screen, x_offset_screen = helper_screen.getScreenOffset(screen_capture.hwnd)
         continuous_find_then_click(screen_capture, continue_template, retries=retries,
                                     y_offset=y_offset_screen, x_offset=x_offset_screen,

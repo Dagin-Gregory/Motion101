@@ -10,6 +10,8 @@ import cv2
 import matplotlib.pyplot as plt
 from multiprocessing.sharedctypes import Synchronized
 
+WINDOW_BAR_HEIGHT = 30 # px
+
 # Class philosophy is once a ScreenCapture object is created it never needs to change
 # no data passing is ever done in this class, it is mainly a wrapper for image processing
 # that makes memory management and calls to the screen more straightforward
@@ -145,7 +147,8 @@ class ScreenCapture:
             #if (self.oldObj is None):
             #    self.oldObj = self.cDC.SelectObject(self.dataBitMap)
 
-            self.cDC.BitBlt((src_x_offset,src_y_offset), (width, height) , self.dcObj, (dest_x_offset,dest_y_offset), pywcon.SRCCOPY)
+            #self.cDC.BitBlt((src_x_offset,src_y_offset), (width, height) , self.dcObj, (dest_x_offset,dest_y_offset), pywcon.SRCCOPY)
+            self.cDC.BitBlt((dest_x_offset, dest_y_offset), (width, height) , self.dcObj, (src_x_offset, src_y_offset), pywcon.SRCCOPY)
             if (save_to_file):
                 save_name = self.bmp_filename
                 if (fn is not None):
@@ -172,7 +175,7 @@ class ScreenCapture:
             with safe.get_lock():
                 if (safe.value):
                     break
-        bitmap_return = self.saveBitmap(height, width, dest_x_offset=x_offset, dest_y_offset=y_offset, set_focus=set_focus, fn=self.game_filename, save_to_file=save_to_file)
+        bitmap_return = self.saveBitmap(height, width, src_x_offset=x_offset, src_y_offset=y_offset, set_focus=set_focus, fn=self.game_filename, save_to_file=save_to_file)
         return bitmap_return
 
     def setupGameWindowPM(self, save_to_file=False):
@@ -294,8 +297,10 @@ def plotX(src:Image.Image, point:tuple[int,int]):
     plt.axis('off')
     plt.show()
 
+# Assumes hwnd is windowed
 def getScreenOffset(hwnd:int):
     y_screenOffset, x_screenOffset = getWindowPos(hwnd)
+    y_screenOffset -= WINDOW_BAR_HEIGHT
     return (y_screenOffset, x_screenOffset)
 
 def getWindowPos(hwnd:int):
