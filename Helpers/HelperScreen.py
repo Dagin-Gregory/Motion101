@@ -210,24 +210,6 @@ class ScreenCapture:
         x_gameOffset = x_screenOffset+topLeft[1]
         return (adjHeight, adjWidth, (y_gameOffset, x_gameOffset), (y_screenOffset, x_screenOffset), topLeft)
 
-    # Pass in the filename of an image rather than a hwnd, useful for testing
-    def TODOsetupGameWindowFn(self, src_fn:str):
-        src = openImage(src_fn)
-        templateTL = openImage('topLeft.png')
-        templateBR = openImage('botRight.png')
-        topLeft,_,_ = templateMatch(src, templateTL, save_img=False)
-        botRight,_,_ = templateMatch(src, templateBR, save_img=False)
-        src.close()
-
-        # Resolution: 1024x768
-        widthOffset  = 19
-        heightOffset = 19
-        old_y,old_x = topLeft
-        topLeft = (old_y+heightOffset, old_x+widthOffset)
-        adjWidth  = botRight[1]-topLeft[1]
-        adjHeight = botRight[0]-topLeft[0]
-        return (adjHeight, adjWidth)
-
 def relevantWindow(windowText:str, wordToFind:str=''):
     windowText = windowText.lower()
     wordToFind = wordToFind.lower()

@@ -273,7 +273,7 @@ def findMoves(moves:multiprocessing.Queue, queued_moves:dict[int, bool], safe_to
         game_window = helper_screen.openImage(game_window)
     if (game_window is None):
         return
-    game_window:Image.Image
+    game_window:Image.Image # typecast to be explicit
 
     sq_height = int(adjHeight / rows_)
     sq_width = int(adjWidth / cols_)
